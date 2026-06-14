@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ─────────────────────────────────────────────────
+    function isAuth() { return request.auth != null; }
+    function isSelf(uid) { return request.auth.uid == uid; }
+    function isDriver() {
+      return isAuth() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'driver';
+    }
+
+    // ── Users ────────────────────────────────────────────────────
+    match /users/{uid} {
+      allow read, update: if isSelf(uid);
+      allow create: if isSelf(uid);
+    }
+
+    // ── Passenger Wallets (system writes only via Cloud Function) ─
+    match /passengerWallets/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
+    // ── Driver Wallets ────────────────────────────────────────────
+    match /driverWallets/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if false;
+    }
+
+    // ── Vehicles ──────────────────────────────────────────────────
+    match /vehicles/{vehicleId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && isDriver()
+        && request.resource.data.ownerUid == request.auth.uid;
+      allow update, delete: if isAuth()
+        && resource.data.ownerUid == request.auth.uid;
+    }
+
+    // ── Trips ─────────────────────────────────────────────────────
+    match /trips/{tripId} {
+      allow read: if isAuth() &&
+        (resource.data.passengerId == request.auth.uid ||
+         resource.data.driverUid == request.auth.uid);
+      allow create: if isAuth() &&
+        request.resource.data.passengerId == request.auth.uid;
+      allow update: if isAuth() &&
+        resource.data.passengerId == request.auth.uid &&
+        resource.data.status == 'active';
+    }
+
+    // ── Transactions ──────────────────────────────────────────────
+    match /transactions/{txnId} {
+      allow read: if isAuth() && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+  }
+}

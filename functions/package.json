@@ -1,0 +1,22 @@
+{
+  "name": "transit-pay-functions",
+  "description": "Firebase Cloud Functions for Transit Pay",
+  "scripts": {
+    "serve": "firebase emulators:start --only functions",
+    "shell": "firebase functions:shell",
+    "start": "npm run shell",
+    "deploy": "firebase deploy --only functions",
+    "logs": "firebase functions:log"
+  },
+  "engines": { "node": "18" },
+  "main": "src/index.js",
+  "dependencies": {
+    "axios": "^1.6.0",
+    "firebase-admin": "^11.0.1",
+    "firebase-functions": "^4.3.1"
+  },
+  "devDependencies": {
+    "firebase-functions-test": "^3.1.0"
+  },
+  "private": true
+}
