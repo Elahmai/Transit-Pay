@@ -41,7 +41,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyAfxonNKyZnv1AHqIFULJyiM4X_iF2eSe8',
+    apiKey: 'API=KEY',
     appId: '1:32999909244:web:8fcc83b1e69a74998ce6f9',
     messagingSenderId: '32999909244',
     projectId: 'transit-pay-kenya',
