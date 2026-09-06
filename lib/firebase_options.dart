@@ -41,7 +41,7 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'API=KEY',
+    apiKey: 'API_KEY',
     appId: '1:32999909244:web:8fcc83b1e69a74998ce6f9',
     messagingSenderId: '32999909244',
     projectId: 'transit-pay-kenya',
@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'API=KEY',
+    apiKey: 'API_KEY',
     appId: '1:32999909244:android:44dd7315901dd8488ce6f9',
     messagingSenderId: '32999909244',
     projectId: 'transit-pay-kenya',
@@ -59,7 +59,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'API=KEY',
+    apiKey: 'API_KEY',
     appId: '1:32999909244:ios:c8902e98f13a3ea28ce6f9',
     messagingSenderId: '32999909244',
     projectId: 'transit-pay-kenya',
@@ -68,7 +68,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'API=KEY',
+    apiKey: 'API_KEY',
     appId: '1:32999909244:ios:c8902e98f13a3ea28ce6f9',
     messagingSenderId: '32999909244',
     projectId: 'transit-pay-kenya',
@@ -77,7 +77,7 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'API=KEY',
+    apiKey: 'API_KEY',
     appId: '1:32999909244:web:0018686a409b61f38ce6f9',
     messagingSenderId: '32999909244',
     projectId: 'transit-pay-kenya',

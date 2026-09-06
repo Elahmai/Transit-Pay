@@ -7,6 +7,8 @@
 .atom/
 .build/
 .buildlog/
+.env
+.env.*
 .history
 .svn/
 .swiftpm/
