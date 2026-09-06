@@ -343,11 +343,15 @@ class _ProfileTab extends StatelessWidget {
           _tile(context, Icons.info_outline, 'About Transit Pay', () {}),
           const SizedBox(height: 16),
           OutlinedButton.icon(
-            onPressed: () async {
-              await auth.signOut();
+           onPressed: () async {
+            await auth.signOut();
+             if (!context.mounted) return;
               Navigator.pushNamedAndRemoveUntil(
-                  context, AppRoutes.login, (_) => false);
-            },
+                 context,
+                  AppRoutes.login,
+                  (_) => false,
+                );
+              },
             icon: const Icon(Icons.logout, color: AppColors.error),
             label: const Text('Sign Out',
                 style: TextStyle(color: AppColors.error)),

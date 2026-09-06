@@ -64,21 +64,26 @@ class _ActiveTripScreenState extends State<ActiveTripScreen> {
     super.dispose();
   }
 
-  // Save passenger counts to Firestore
-  Future<void> _updatePassengerCount() async {
-    await FirebaseFirestore.instance
-        .collection('trips')
-        .doc(_trip!.tripId)
-        .update({'adults': _adults, 'children': _children});
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-            'Updated: $_adults adult${_adults != 1 ? 's' : ''}, $_children child${_children != 1 ? 'ren' : ''}'),
-        backgroundColor: AppColors.secondary,
-        duration: const Duration(seconds: 2),
+// Save passenger counts to Firestore
+Future<void> _updatePassengerCount() async {
+  await FirebaseFirestore.instance
+      .collection('trips')
+      .doc(_trip!.tripId)
+      .update({'adults': _adults, 'children': _children});
+
+  if (!mounted) return;
+
+  ScaffoldMessenger.of(context).showSnackBar(
+    SnackBar(
+      content: Text(
+        'Updated: $_adults adult${_adults != 1 ? 's' : ''}, '
+        '$_children child${_children != 1 ? 'ren' : ''}',
       ),
-    );
-  }
+      backgroundColor: AppColors.secondary,
+      duration: const Duration(seconds: 2),
+    ),
+  );
+}
 
   void _showPassengerSelector() {
     int tempAdults = _adults;

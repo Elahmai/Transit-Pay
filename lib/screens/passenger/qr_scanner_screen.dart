@@ -64,6 +64,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     if (!mounted) return;
     if (start.isSuccess) {
       await _notif.showTripStarted(result.vehicle!.plate);
+       if (!mounted) return;
       Navigator.pushReplacementNamed(context, AppRoutes.activeTrip,
           arguments: start.trip!);
     } else {
@@ -87,6 +88,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
     if (result.isSuccess) {
       await _notif.showTripEnded(
           result.trip!.totalFare, result.trip!.distanceKm);
+           if (!mounted) return;
       Navigator.pushReplacementNamed(context, AppRoutes.tripSummary,
           arguments: result.trip!);
     } else {

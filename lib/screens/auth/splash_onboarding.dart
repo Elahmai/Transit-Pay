@@ -5,7 +5,27 @@ import '../../utils/theme.dart';
 
 // ─── Splash ───────────────────────────────────────────────────────
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+  /// Returns the current Firebase user. Defaults to the real
+  /// FirebaseAuth check; tests can override with a fake so no
+  /// Firebase app needs to be initialized.
+  final User? Function()? getCurrentUser;
+
+  /// Auth service used to look up the app-level user model once
+  /// we know someone is logged in. Defaults to a real AuthService();
+  /// tests can inject a fake.
+  final AuthService? authService;
+
+  /// How long the splash stays up before navigating. Defaults to
+  /// 2 seconds; tests can pass Duration.zero to skip the wait.
+  final Duration splashDuration;
+
+  const SplashScreen({
+    super.key,
+    this.getCurrentUser,
+    this.authService,
+    this.splashDuration = const Duration(seconds: 2),
+  });
+
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -28,13 +48,18 @@ class _SplashScreenState extends State<SplashScreen>
   }
 
   Future<void> _navigate() async {
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(widget.splashDuration);
     if (!mounted) return;
-    final user = FirebaseAuth.instance.currentUser;
+
+    final getCurrentUser =
+        widget.getCurrentUser ?? () => FirebaseAuth.instance.currentUser;
+    final user = getCurrentUser();
+
     if (user == null) {
       Navigator.pushReplacementNamed(context, AppRoutes.onboarding);
     } else {
-      final model = await AuthService().getCurrentUserModel();
+      final authService = widget.authService ?? AuthService();
+      final model = await authService.getCurrentUserModel();
       if (!mounted) return;
       if (model == null) {
         Navigator.pushReplacementNamed(context, AppRoutes.login);

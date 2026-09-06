@@ -1,30 +1,27 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:transit_pay/main.dart';
+import 'package:transit_pay/screens/auth/splash_onboarding.dart';
+import 'package:transit_pay/utils/theme.dart'; // for AppRoutes
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const TransitPayApp());
+  testWidgets('Transit-Pay splash navigates to onboarding when logged out',
+      (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        routes: {
+          AppRoutes.onboarding: (_) => const Scaffold(body: Text('Onboarding')),
+        },
+        home: SplashScreen(
+          getCurrentUser: () => null,       // simulate logged-out, no Firebase needed
+          splashDuration: Duration.zero,    // skip the 2s wait
+        ),
+      ),
+    );
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pump();          // build first frame
+    await tester.pump();          // let Future.delayed(Duration.zero) resolve
+    await tester.pumpAndSettle(); // settle the route transition
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Onboarding'), findsOneWidget);
   });
 }

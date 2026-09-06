@@ -347,9 +347,14 @@ class _RegisterBanner extends StatelessWidget {
                   routeCtrl.text.trim().isEmpty) {
                 return;
               }
-              await vehicleService.registerVehicle(
-                  plate: plateCtrl.text.trim(), route: routeCtrl.text.trim());
-              Navigator.pop(ctx);
+            await vehicleService.registerVehicle(
+              plate: plateCtrl.text.trim(),
+              route: routeCtrl.text.trim(),
+            );
+
+            if (!ctx.mounted) return;
+
+            Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(
                 minimumSize: Size.zero,
@@ -454,7 +459,14 @@ class _QrTab extends StatelessWidget {
                 data: vehicle!.qrPayload,
                 version: QrVersions.auto,
                 size: 220,
-                foregroundColor: AppColors.dark,
+                eyeStyle: const QrEyeStyle(
+                  eyeShape: QrEyeShape.square,
+                  color: AppColors.dark,
+                ),
+                dataModuleStyle: const QrDataModuleStyle(
+                  dataModuleShape: QrDataModuleShape.square,
+                  color: AppColors.dark,
+                ),
               ),
               const SizedBox(height: 20),
               Text(vehicle!.plate,
@@ -543,10 +555,16 @@ class _ProfileTab extends StatelessWidget {
           const SizedBox(height: 16),
           OutlinedButton.icon(
             onPressed: () async {
-              await auth.signOut();
-              Navigator.pushNamedAndRemoveUntil(
-                  context, AppRoutes.login, (_) => false);
-            },
+            await auth.signOut();
+
+            if (!context.mounted) return;
+
+            Navigator.pushNamedAndRemoveUntil(
+              context,
+              AppRoutes.login,
+              (_) => false,
+            );
+          },
             icon: const Icon(Icons.logout, color: AppColors.error),
             label: const Text('Sign Out',
                 style: TextStyle(color: AppColors.error)),
