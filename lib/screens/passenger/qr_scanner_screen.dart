@@ -103,53 +103,110 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           shape: const RoundedRectangleBorder(
               borderRadius:
                   BorderRadius.vertical(top: Radius.circular(24))),
-          builder: (ctx) => Padding(
-            padding: const EdgeInsets.fromLTRB(28, 28, 28, 40),
-            child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Container(
-                width: 52,
-                height: 52,
-                decoration: BoxDecoration(
-                    color: AppColors.primaryLight,
-                    borderRadius: BorderRadius.circular(14)),
-                child: const Icon(Icons.directions_bus_filled,
-                    color: AppColors.primary, size: 30),
-              ),
-              const SizedBox(height: 14),
-              Text(v.plate,
-                  style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.dark)),
-              const SizedBox(height: 4),
-              Text(v.route,
-                  style: const TextStyle(
-                      color: AppColors.gray500, fontSize: 14)),
-              const SizedBox(height: 16),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                    color: AppColors.gray100,
-                    borderRadius: BorderRadius.circular(12)),
-                child: Column(children: [
-                  _fareRow('Base Fare',
-                      'KSh ${AppConstants.baseFare.toStringAsFixed(0)}'),
-                  const SizedBox(height: 4),
-                  _fareRow('Rate',
-                      'KSh ${AppConstants.ratePerKm.toStringAsFixed(0)}/km'),
-                ]),
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Board This Matatu')),
-              const SizedBox(height: 8),
-              TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel',
-                      style: TextStyle(color: AppColors.gray500))),
-            ]),
+          builder: (ctx) => DraggableScrollableSheet(
+            initialChildSize: 0.72,
+            minChildSize: 0.4,
+            maxChildSize: 0.9,
+            expand: false,
+            builder: (ctx, scrollCtrl) => SingleChildScrollView(
+              controller: scrollCtrl,
+              padding: const EdgeInsets.fromLTRB(28, 28, 28, 40),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 12, vertical: 5),
+                  decoration: BoxDecoration(
+                      color: AppColors.secondaryLight,
+                      borderRadius: BorderRadius.circular(20)),
+                  child: const Text('Matatu Found ✓',
+                      style: TextStyle(
+                          color: AppColors.secondary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12)),
+                ),
+                const SizedBox(height: 14),
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                      color: AppColors.primaryLight,
+                      borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(Icons.directions_bus_filled,
+                      color: AppColors.primary, size: 30),
+                ),
+                const SizedBox(height: 14),
+                Text(v.plate,
+                    style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.dark)),
+                const SizedBox(height: 4),
+                Text(v.route,
+                    style: const TextStyle(
+                        color: AppColors.gray500, fontSize: 14)),
+
+                if (v.displayStages.isNotEmpty) ...[
+                  const SizedBox(height: 20),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Stages',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            fontSize: 13,
+                            color: AppColors.gray700)),
+                  ),
+                  const SizedBox(height: 12),
+                  StageTimeline(stages: v.displayStages),
+                ],
+
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                      color: AppColors.gray100,
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Column(children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Estimated Fare',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.dark,
+                                fontSize: 13)),
+                        Text(
+                            'from KSh ${AppConstants.baseFare.toStringAsFixed(0)}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.primary,
+                                fontSize: 15)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    _fareRow('Base Fare',
+                        'KSh ${AppConstants.baseFare.toStringAsFixed(0)}'),
+                    const SizedBox(height: 4),
+                    _fareRow('Rate',
+                        'KSh ${AppConstants.ratePerKm.toStringAsFixed(0)}/km'),
+                  ]),
+                ),
+                const SizedBox(height: 10),
+                const FareEstimateNote(
+                  text:
+                      'Estimated fare based on route and distance travelled. '
+                      'Your final fare is calculated automatically when you end the trip.',
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Board This Matatu')),
+                const SizedBox(height: 8),
+                TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Cancel',
+                        style: TextStyle(color: AppColors.gray500))),
+              ]),
+            ),
           ),
         ) ??
         false;
