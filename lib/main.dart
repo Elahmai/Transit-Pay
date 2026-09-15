@@ -7,6 +7,7 @@ import 'screens/passenger/topup_screen.dart';
 import 'screens/passenger/qr_scanner_screen.dart';
 import 'screens/passenger/active_trip_screen.dart';
 import 'screens/passenger/trip_summary_screen.dart';
+import 'screens/passenger/assistant_screen.dart';
 import 'screens/driver/driver_home_screen.dart';
 // ignore: unused_import
 import 'services/notification_service.dart';
@@ -15,12 +16,18 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-  options: DefaultFirebaseOptions.currentPlatform,
-);
+
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } on FirebaseException catch (e) {
+    if (e.code != 'duplicate-app') rethrow;
+    // Native side already initialized [DEFAULT]; safe to continue.
+  }
+
   runApp(const TransitPayApp());
 }
-
 class TransitPayApp extends StatelessWidget {
   const TransitPayApp({super.key});
 
@@ -41,6 +48,7 @@ class TransitPayApp extends StatelessWidget {
         AppRoutes.scanQr:        (_) => const QrScannerScreen(),
         AppRoutes.activeTrip:    (_) => const ActiveTripScreen(),
         AppRoutes.tripSummary:   (_) => const TripSummaryScreen(),
+        AppRoutes.assistant:     (_) => const AssistantScreen(),
         AppRoutes.driverHome:    (_) => const DriverHomeScreen(),
       },
     );

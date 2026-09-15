@@ -84,6 +84,7 @@ class VehicleModel {
   final String route;
   final String qrPayload;
   final bool isActive;
+  final List<String> stages;
 
   const VehicleModel({
     required this.vehicleId,
@@ -92,7 +93,21 @@ class VehicleModel {
     required this.route,
     required this.qrPayload,
     this.isActive = true,
+    this.stages = const [],
   });
+
+  /// Stops to show on the journey timeline. Falls back to splitting the
+  /// free-text `route` (e.g. "CBD - Rongai") when no explicit stage list
+  /// was provided at registration, so older vehicles still render a stub
+  /// origin -> destination timeline.
+  List<String> get displayStages {
+    if (stages.isNotEmpty) return stages;
+    return route
+        .split(RegExp(r'[-–—>→]'))
+        .map((s) => s.trim())
+        .where((s) => s.isNotEmpty)
+        .toList();
+  }
 
   factory VehicleModel.fromFirestore(DocumentSnapshot doc) {
     final d = doc.data() as Map<String, dynamic>;
@@ -103,6 +118,7 @@ class VehicleModel {
       route: d['route'] ?? '',
       qrPayload: d['qrPayload'] ?? '',
       isActive: d['isActive'] ?? true,
+      stages: List<String>.from(d['stages'] ?? const []),
     );
   }
 
@@ -113,6 +129,7 @@ class VehicleModel {
         'route': route,
         'qrPayload': qrPayload,
         'isActive': isActive,
+        'stages': stages,
         'createdAt': FieldValue.serverTimestamp(),
       };
 }
