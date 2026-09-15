@@ -166,6 +166,7 @@ class AppRoutes {
   static const String tripSummary = '/passenger/trip-summary';
   static const String tripHistory = '/passenger/history';
   static const String passengerProfile = '/passenger/profile';
+  static const String assistant = '/passenger/assistant';
   static const String driverHome = '/driver/home';
   static const String driverQr = '/driver/qr';
   static const String driverTrips = '/driver/trips';

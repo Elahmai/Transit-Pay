@@ -334,6 +334,105 @@ class AmountSelector extends StatelessWidget {
       );
 }
 
+// ─── Stage Timeline ───────────────────────────────────────────────
+/// Visual origin -> stops -> destination timeline for a vehicle's route.
+class StageTimeline extends StatelessWidget {
+  final List<String> stages;
+  const StageTimeline({super.key, required this.stages});
+
+  @override
+  Widget build(BuildContext context) {
+    if (stages.isEmpty) return const SizedBox.shrink();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: List.generate(stages.length, (i) {
+        final isFirst = i == 0;
+        final isLast = i == stages.length - 1;
+        final color = isFirst
+            ? AppColors.primary
+            : isLast
+                ? AppColors.accent
+                : AppColors.gray500;
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(children: [
+                Container(
+                  width: isFirst || isLast ? 12 : 8,
+                  height: isFirst || isLast ? 12 : 8,
+                  margin: const EdgeInsets.only(top: 4),
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                    border: isFirst || isLast
+                        ? null
+                        : Border.all(color: color, width: 1.5),
+                  ),
+                ),
+                if (!isLast)
+                  Expanded(
+                    child: Container(
+                      width: 2,
+                      margin: const EdgeInsets.symmetric(vertical: 2),
+                      color: AppColors.gray300,
+                    ),
+                  ),
+              ]),
+              const SizedBox(width: 12),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 16),
+                child: Text(
+                  stages[i],
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight:
+                        isFirst || isLast ? FontWeight.w700 : FontWeight.w500,
+                    color: isFirst || isLast
+                        ? AppColors.dark
+                        : AppColors.gray700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+// ─── Fare Estimate Note ───────────────────────────────────────────
+/// Standard disclaimer so passengers never mistake an estimate for a
+/// guaranteed/final fare.
+class FareEstimateNote extends StatelessWidget {
+  final String text;
+  const FareEstimateNote({
+    super.key,
+    this.text =
+        'This is an estimated fare based on distance and passengers. '
+        'The final amount is calculated when your trip ends.',
+  });
+
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: AppColors.gray100,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Icon(Icons.info_outline, color: AppColors.gray500, size: 14),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(text,
+                style:
+                    const TextStyle(color: AppColors.gray500, fontSize: 11.5)),
+          ),
+        ]),
+      );
+}
+
 // ─── Section Header ───────────────────────────────────────────────
 class SectionHeader extends StatelessWidget {
   final String title;
