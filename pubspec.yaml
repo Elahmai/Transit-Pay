@@ -30,6 +30,7 @@ dependencies:
   permission_handler: ^11.3.0
   dio: ^5.4.3
   google_fonts: ^8.1.0
+  cloud_functions: ^4.7.6
 
 dev_dependencies:
   flutter_test:
