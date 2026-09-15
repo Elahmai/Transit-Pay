@@ -88,11 +88,17 @@ class TripSummaryScreen extends StatelessWidget {
             const SizedBox(height: 12),
             const Divider(height: 1, color: Color(0xFFE5E7EB)),
             const SizedBox(height: 12),
-            const Text('Fare Breakdown',
+            const Text('Final Fare Breakdown',
                 style: TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                     color: AppColors.dark)),
+            const SizedBox(height: 4),
+            const Text(
+              'Calculated from actual distance travelled — this replaces '
+              'the estimate shown during your trip.',
+              style: TextStyle(color: AppColors.gray500, fontSize: 11.5),
+            ),
             const SizedBox(height: 10),
             _row('Adults (${trip.adults}) base fare',
                 'KSh ${(trip.adults * trip.baseFare).toStringAsFixed(2)}'),
