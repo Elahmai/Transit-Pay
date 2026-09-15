@@ -318,25 +318,43 @@ class _RegisterBanner extends StatelessWidget {
   Future<void> _showRegisterDialog(BuildContext context) async {
     final plateCtrl = TextEditingController();
     final routeCtrl = TextEditingController();
+    final stopsCtrl = TextEditingController();
     await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Register Your Vehicle'),
-        content: Column(mainAxisSize: MainAxisSize.min, children: [
-          TextField(
-            controller: plateCtrl,
-            textCapitalization: TextCapitalization.characters,
-            decoration: const InputDecoration(
-                labelText: 'Number Plate', hintText: 'e.g. KCB 123A'),
-          ),
-          const SizedBox(height: 12),
-          TextField(
-            controller: routeCtrl,
-            decoration: const InputDecoration(
-                labelText: 'Route', hintText: 'e.g. CBD - Westlands'),
-          ),
-        ]),
+        content: SingleChildScrollView(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(
+              controller: plateCtrl,
+              textCapitalization: TextCapitalization.characters,
+              decoration: const InputDecoration(
+                  labelText: 'Number Plate', hintText: 'e.g. KCB 123A'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: routeCtrl,
+              decoration: const InputDecoration(
+                  labelText: 'Route', hintText: 'e.g. CBD - Westlands'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: stopsCtrl,
+              minLines: 1,
+              maxLines: 2,
+              decoration: const InputDecoration(
+                labelText: 'Stops (optional)',
+                hintText: 'e.g. CBD, Kenyatta, Nyayo, Bunyala, Rongai',
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Comma-separated, in order. Shown to passengers as the journey timeline.',
+              style: TextStyle(color: AppColors.gray500, fontSize: 12),
+            ),
+          ]),
+        ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx),
@@ -347,14 +365,20 @@ class _RegisterBanner extends StatelessWidget {
                   routeCtrl.text.trim().isEmpty) {
                 return;
               }
-            await vehicleService.registerVehicle(
-              plate: plateCtrl.text.trim(),
-              route: routeCtrl.text.trim(),
-            );
+              final stops = stopsCtrl.text
+                  .split(',')
+                  .map((s) => s.trim())
+                  .where((s) => s.isNotEmpty)
+                  .toList();
+              await vehicleService.registerVehicle(
+                plate: plateCtrl.text.trim(),
+                route: routeCtrl.text.trim(),
+                stages: stops,
+              );
 
-            if (!ctx.mounted) return;
+              if (!ctx.mounted) return;
 
-            Navigator.pop(ctx);
+              Navigator.pop(ctx);
             },
             style: ElevatedButton.styleFrom(
                 minimumSize: Size.zero,

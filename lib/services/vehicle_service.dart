@@ -12,10 +12,15 @@ class VehicleService {
   Future<VehicleModel> registerVehicle({
     required String plate,
     required String route,
+    List<String> stages = const [],
   }) async {
     final vehicleId = plate.replaceAll(' ', '').toUpperCase();
-    final qrPayload = jsonEncode(
-        {'vehicleId': vehicleId, 'plate': plate, 'route': route, 'ownerUid': _uid});
+    final qrPayload = jsonEncode({
+      'vehicleId': vehicleId,
+      'plate': plate,
+      'route': route,
+      'ownerUid': _uid,
+    });
 
     final vehicle = VehicleModel(
       vehicleId: vehicleId,
@@ -23,6 +28,7 @@ class VehicleService {
       plate: plate,
       route: route,
       qrPayload: qrPayload,
+      stages: stages,
     );
 
     await _db
