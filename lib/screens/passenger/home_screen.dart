@@ -34,6 +34,15 @@ class _PassengerHomeScreenState extends State<PassengerHomeScreen> {
             _HistoryTab(uid: _uid, trips: _trips),
             _ProfileTab(user: user, auth: _auth),
           ]),
+          floatingActionButton: _nav == 0
+              ? FloatingActionButton.extended(
+                  onPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.assistant),
+                  backgroundColor: AppColors.dark,
+                  icon: const Text('🤖', style: TextStyle(fontSize: 16)),
+                  label: const Text('Transit AI'),
+                )
+              : null,
           bottomNavigationBar: Container(
             decoration: const BoxDecoration(
               color: AppColors.white,
