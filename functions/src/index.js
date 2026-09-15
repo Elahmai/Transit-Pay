@@ -30,6 +30,60 @@ async function getMpesaToken() {
   return res.data.access_token;
 }
 
+// ─── Secure demo/manual wallet top-up ──────────────────────────────
+// Passenger wallets have `allow write: if false` in firestore.rules, so
+// every balance change must go through a Cloud Function. This is the
+// secure counterpart of the old client-side "simulateTopUp" — same
+// no-real-money-moves demo behaviour, but the balance mutation now
+// happens server-side where it can be validated.
+exports.walletTopUp = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Login required.');
+  const uid = context.auth.uid;
+  const amount = Number(data.amount);
+
+  if (!amount || !Number.isFinite(amount) || amount < 10) {
+    throw new functions.https.HttpsError('invalid-argument', 'Minimum top-up is KSh 10.');
+  }
+  if (amount > 150000) {
+    throw new functions.https.HttpsError('invalid-argument', 'Maximum top-up is KSh 150,000.');
+  }
+
+  const walletRef = db.collection('passengerWallets').doc(uid);
+  const txnRef = db.collection('transactions').doc();
+
+  try {
+    const newBalance = await db.runTransaction(async (txn) => {
+      const wallet = await txn.get(walletRef);
+      const current = wallet.exists ? (wallet.data().balance ?? 0) : 0;
+      const newBal = Math.round((current + amount) * 100) / 100;
+
+      txn.set(walletRef, {
+        uid,
+        balance: newBal,
+        totalTopUp: admin.firestore.FieldValue.increment(amount),
+        lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+      }, { merge: true });
+
+      txn.set(txnRef, {
+        uid, type: 'topup', amount,
+        balanceBefore: current, balanceAfter: newBal,
+        mpesaRef: `SIM${Date.now()}`,
+        status: 'success',
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        description: 'Wallet top-up (simulated for demo)',
+        tripId: null,
+      });
+
+      return newBal;
+    });
+
+    return { success: true, amount, balance: newBalance };
+  } catch (err) {
+    console.error('walletTopUp error:', err);
+    throw new functions.https.HttpsError('internal', 'Top-up failed. Please try again.');
+  }
+});
+
 // ─── STK Push (real M-Pesa) ───────────────────────────────────────
 exports.initiateStkPush = functions.https.onCall(async (data, context) => {
   if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Login required.');
@@ -147,9 +201,17 @@ exports.endTrip = functions.https.onCall(async (data, context) => {
   }
   dist = Math.round(dist * 100) / 100;
 
-  const BASE = 20, RATE = 3, FEE = 0.05;
-  const distFare = Math.round(dist * RATE * 100) / 100;
-  const totalFare = Math.round((BASE + distFare) * 100) / 100;
+  // Same formula the app shows as the live estimate (base + per-km, with a
+  // 50% child discount), so the amount actually charged here always
+  // matches what the passenger was told to expect — never more, never less.
+  const BASE = 20, RATE = 3, FEE = 0.05, CHILD_DISCOUNT = 0.5;
+  const adults = trip.adults || 1;
+  const children = trip.children || 0;
+  const perKmFare = dist * RATE;
+  const distFare = Math.round(perKmFare * 100) / 100;
+  const adultFare = adults * (BASE + perKmFare);
+  const childFare = children * (BASE + perKmFare) * CHILD_DISCOUNT;
+  const totalFare = Math.round((adultFare + childFare) * 100) / 100;
   const driverEarn = Math.round(totalFare * (1 - FEE) * 100) / 100;
 
   const pWalletRef = db.collection('passengerWallets').doc(trip.passengerId);
@@ -193,6 +255,169 @@ exports.endTrip = functions.https.onCall(async (data, context) => {
   } catch (err) {
     await tripRef.update({ status: 'active' }).catch(() => {});
     throw new functions.https.HttpsError('internal', err.message);
+  }
+});
+
+// ─── Transit AI assistant ───────────────────────────────────────────
+// Intent-based Q&A over the passenger's *real* Transit Pay data. This is
+// deliberately NOT a free-form LLM call: every number it says comes
+// straight from Firestore, so it can never invent a fare or balance.
+// `AiService`/`FirebaseAiService` on the Flutter side are written as a
+// thin swappable client, so a real LLM (kept behind this same secure
+// callable, never with a key in the app) can be dropped in later without
+// touching the UI — see lib/services/ai_service.dart.
+// The assistant never writes anything; it is read-only by construction.
+
+function fmtKsh(n) {
+  return `KSh ${Number(n).toFixed(0)}`;
+}
+
+async function aiGetWallet(uid) {
+  const doc = await db.collection('passengerWallets').doc(uid).get();
+  return doc.exists ? (doc.data().balance ?? 0) : 0;
+}
+
+async function aiGetActiveTrip(uid) {
+  const snap = await db.collection('trips')
+    .where('passengerId', '==', uid)
+    .where('status', '==', 'active')
+    .limit(1).get();
+  return snap.empty ? null : { id: snap.docs[0].id, ...snap.docs[0].data() };
+}
+
+async function aiGetRecentTrips(uid, n) {
+  const snap = await db.collection('trips')
+    .where('passengerId', '==', uid)
+    .orderBy('startTime', 'desc')
+    .limit(n).get();
+  return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+async function aiGetSpending(uid, days) {
+  const since = admin.firestore.Timestamp.fromMillis(Date.now() - days * 86400000);
+  const snap = await db.collection('transactions')
+    .where('uid', '==', uid)
+    .where('type', '==', 'fare_debit')
+    .where('timestamp', '>=', since)
+    .get();
+  let total = 0;
+  snap.forEach(d => { total += d.data().amount || 0; });
+  return { total, count: snap.size };
+}
+
+async function aiFindVehicleByRouteHint(text) {
+  const snap = await db.collection('vehicles').where('isActive', '==', true).get();
+  const hint = text.toLowerCase();
+  for (const doc of snap.docs) {
+    const v = doc.data();
+    if ((v.route || '').toLowerCase().includes(hint) ||
+        (v.stages || []).some(s => hint.includes(s.toLowerCase()))) {
+      return v;
+    }
+  }
+  return null;
+}
+
+function estimateForTrip(trip) {
+  const BASE = 20, RATE = 3, CHILD_DISCOUNT = 0.5;
+  const dist = trip.distanceKm || 0;
+  const adults = trip.adults || 1;
+  const children = trip.children || 0;
+  const perKm = dist * RATE;
+  return Math.round((adults * (BASE + perKm) + children * (BASE + perKm) * CHILD_DISCOUNT) * 100) / 100;
+}
+
+exports.assistantQuery = functions.https.onCall(async (data, context) => {
+  if (!context.auth) throw new functions.https.HttpsError('unauthenticated', 'Login required.');
+  const uid = context.auth.uid;
+  const message = String(data.message || '').trim();
+  if (!message) throw new functions.https.HttpsError('invalid-argument', 'Message is required.');
+  const m = message.toLowerCase();
+
+  try {
+    // Checked roughly most-specific-first so overlapping keywords (e.g. a
+    // spending question that happens to mention "fare") land in the
+    // intent that actually answers them.
+
+    // 1. Spending insights ("this week", "how much did I spend")
+    if (/\b(spend|spent|spending)\b/.test(m)) {
+      const days = /\bmonth\b/.test(m) ? 30 : 7;
+      const { total, count } = await aiGetSpending(uid, days);
+      if (count === 0) {
+        return { reply: `I don't see any completed trips in the last ${days} days, so there's no spending to report yet.` };
+      }
+      const avg = total / count;
+      return {
+        reply: `You spent approximately ${fmtKsh(total)} on Transit Pay trips over the last ${days} days.\n\nTrips: ${count}\nAverage fare: ${fmtKsh(avg)}`,
+      };
+    }
+
+    // 2. Wallet balance
+    if (/\b(wallet|balance|how much money|money (do i have|in my))\b/.test(m)) {
+      const balance = await aiGetWallet(uid);
+      return { reply: `Your Transit Pay wallet balance is ${fmtKsh(balance)}.` };
+    }
+
+    // 3. Recent / last trip, "which route did I take"
+    if (/\b(last trip|recent trip|which route|yesterday|my trips?)\b/.test(m)) {
+      const trips = await aiGetRecentTrips(uid, /\b(recent trips)\b/.test(m) ? 5 : 1);
+      if (trips.length === 0) {
+        return { reply: "You don't have any trips on record yet. Scan a matatu's QR code to take your first one." };
+      }
+      if (trips.length === 1) {
+        const t = trips[0];
+        const when = t.startTime && t.startTime.toDate ? t.startTime.toDate().toDateString() : 'a recent date';
+        const status = t.status === 'completed'
+          ? `completed, ${fmtKsh(t.totalFare || 0)} charged for ${(t.distanceKm || 0).toFixed(1)} km`
+          : t.status;
+        return { reply: `Your last recorded trip was on ${t.vehicleId} on ${when} — ${status}.` };
+      }
+      const lines = trips.map(t => {
+        const when = t.startTime && t.startTime.toDate ? t.startTime.toDate().toDateString() : '';
+        return `• ${t.vehicleId} · ${when} · ${t.status === 'completed' ? fmtKsh(t.totalFare || 0) : t.status}`;
+      });
+      return { reply: `Here are your ${trips.length} most recent trips:\n\n${lines.join('\n')}` };
+    }
+
+    // 4. Route / stage lookup (checked before the generic fare intent so
+    // "what stages are on the Rongai route" doesn't get swallowed by it)
+    if (/\b(stage|stages|stops|which route)\b/.test(m)) {
+      const vehicle = await aiFindVehicleByRouteHint(message);
+      if (!vehicle) {
+        return { reply: "I couldn't find a registered route matching that in Transit Pay yet. Try naming one of the stops, e.g. \"What stages are on the Rongai route?\"" };
+      }
+      const stages = (vehicle.stages && vehicle.stages.length) ? vehicle.stages.join(', ') : null;
+      return {
+        reply: stages
+          ? `The ${vehicle.route} route (vehicle ${vehicle.plate}) currently shows these stages in Transit Pay: ${stages}.`
+          : `I found the ${vehicle.route} route (vehicle ${vehicle.plate}), but no detailed stage list has been added for it yet.`,
+      };
+    }
+
+    // 5. Active-trip fare / affordability questions — deliberately broad
+    // ("fare", "afford", "enough") since this is the assistant's most
+    // common job, and it safely degrades to "no active trip" when there
+    // isn't one to estimate.
+    if (/\b(fare|afford|enough|can i pay)\b/.test(m)) {
+      const trip = await aiGetActiveTrip(uid);
+      if (!trip) {
+        return { reply: "You don't have an active trip right now, so there's no live fare estimate to show. Scan a matatu's QR code to start one." };
+      }
+      const balance = await aiGetWallet(uid);
+      const estimate = estimateForTrip(trip);
+      const canAfford = balance >= estimate;
+      return {
+        reply: `Your current trip estimate is ${fmtKsh(estimate)} for ${(trip.distanceKm || 0).toFixed(1)} km so far (this updates as you travel — the final amount is set when you end the trip). Your wallet balance is ${fmtKsh(balance)}, so ${canAfford ? `you're covered, with about ${fmtKsh(balance - estimate)} left over.` : `you're short by about ${fmtKsh(estimate - balance)} — you may want to top up before ending the trip.`}`,
+      };
+    }
+
+    // Fallback — don't guess, tell the user what's actually answerable.
+    return {
+      reply: "I can help with things like your wallet balance, your current trip's fare estimate, recent trips, weekly spending, or a route's stages. Try asking one of those, or use the quick options below.",
+    };
+  } catch (err) {
+    console.error('assistantQuery error:', err);
+    throw new functions.https.HttpsError('internal', 'Assistant is unavailable right now. Please try again.');
   }
 });
 
