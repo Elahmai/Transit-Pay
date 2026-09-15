@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/models.dart';
@@ -10,6 +11,7 @@ import 'wallet_service.dart';
 class TripService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFunctions _functions = FirebaseFunctions.instance;
   final WalletService _walletService = WalletService();
 
   Timer? _locationTimer;
@@ -151,16 +153,18 @@ class TripService {
   }
 
   // ─── End Trip ─────────────────────────────────────────────────
+  /// Settlement (distance calc, fare calc, wallet debit/credit,
+  /// transaction records) all happens inside the secure `endTrip` Cloud
+  /// Function — passenger wallets are `allow write: if false` in
+  /// firestore.rules, so the client can never move money on its own,
+  /// only ask the backend to do it after re-validating everything.
   Future<EndTripResult> endTrip({
     required String tripId,
     required String scannedVehicleId,
   }) async {
     try {
-      final tripRef = _db.collection(AppConstants.tripsCol).doc(tripId);
-      final snap = await tripRef.get();
-      if (!snap.exists) return EndTripResult.failure('Trip not found.');
-
-      final trip = TripModel.fromFirestore(snap);
+      final trip = await getTripById(tripId);
+      if (trip == null) return EndTripResult.failure('Trip not found.');
       if (trip.vehicleId != scannedVehicleId) {
         return EndTripResult.failure(
             'QR code does not match your current trip vehicle.');
@@ -170,45 +174,16 @@ class TripService {
       }
 
       final pos = await getCurrentPosition();
-      final endGeo = pos != null
-          ? GeoPoint(pos.latitude, pos.longitude)
-          : trip.locationHistory.isNotEmpty
-              ? trip.locationHistory.last
-              : trip.startLocation;
+      final endLat = pos?.latitude ?? trip.startLocation.latitude;
+      final endLng = pos?.longitude ?? trip.startLocation.longitude;
 
-      final history = List<GeoPoint>.from(trip.locationHistory)..add(endGeo);
-      double totalDist = 0;
-      for (int i = 1; i < history.length; i++) {
-        totalDist += haversineDistance(history[i - 1], history[i]);
-      }
-      totalDist = double.parse(totalDist.toStringAsFixed(2));
-
-      await tripRef.update({'status': 'processing'});
-
-      final fareResult = await _walletService.deductFare(
-        tripId: tripId,
-        passengerId: trip.passengerId,
-        driverUid: trip.driverUid,
-        distanceKm: totalDist,
-      );
-
-      if (!fareResult.isSuccess) {
-        await tripRef.update({'status': 'active'});
-        return EndTripResult.failure(fareResult.error!);
-      }
-
-      final distFare = totalDist * AppConstants.ratePerKm;
-      final totalFare = AppConstants.baseFare + distFare;
-
-      await tripRef.update({
-        'status': 'completed',
-        'endLocation': endGeo,
-        'endTime': FieldValue.serverTimestamp(),
-        'distanceKm': totalDist,
-        'distanceFare': double.parse(distFare.toStringAsFixed(2)),
-        'totalFare': double.parse(totalFare.toStringAsFixed(2)),
-        'locationHistory': history,
+      final callable = _functions.httpsCallable('endTrip');
+      final res = await callable.call<Map<String, dynamic>>({
+        'tripId': tripId,
+        'endLat': endLat,
+        'endLng': endLng,
       });
+      final data = Map<String, dynamic>.from(res.data as Map);
 
       _stopTracking();
 
@@ -219,16 +194,20 @@ class TripService {
         driverUid: trip.driverUid,
         status: TripStatus.completed,
         startLocation: trip.startLocation,
-        endLocation: endGeo,
+        endLocation: GeoPoint(endLat, endLng),
         startTime: trip.startTime,
         endTime: DateTime.now(),
-        distanceKm: totalDist,
-        baseFare: AppConstants.baseFare,
-        distanceFare: distFare,
-        totalFare: totalFare,
+        distanceKm: (data['distanceKm'] as num).toDouble(),
+        baseFare: (data['baseFare'] as num).toDouble(),
+        distanceFare: (data['distanceFare'] as num).toDouble(),
+        totalFare: (data['totalFare'] as num).toDouble(),
+        adults: trip.adults,
+        children: trip.children,
       );
 
       return EndTripResult.success(completed);
+    } on FirebaseFunctionsException catch (e) {
+      return EndTripResult.failure(e.message ?? 'Could not end trip.');
     } catch (e) {
       return EndTripResult.failure(e.toString());
     }

@@ -406,6 +406,26 @@ Future<void> _updatePassengerCount() async {
                 _mapCtrl?.animateCamera(
                     CameraUpdate.newLatLngZoom(_currentLatLng, 15));
               }),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: () =>
+                    Navigator.pushNamed(context, AppRoutes.assistant),
+                child: Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.1),
+                          blurRadius: 6)
+                    ],
+                  ),
+                  child: const Center(
+                      child: Text('🤖', style: TextStyle(fontSize: 16))),
+                ),
+              ),
             ]),
           ),
         ),
@@ -457,6 +477,12 @@ Future<void> _updatePassengerCount() async {
                   color: AppColors.accent,
                 ),
               ]),
+              const SizedBox(height: 10),
+              const FareEstimateNote(
+                text:
+                    'Estimated fare — updates as you travel. The final '
+                    'amount is set automatically when you end the trip.',
+              ),
               const SizedBox(height: 12),
 
               // Passenger summary tap to edit
