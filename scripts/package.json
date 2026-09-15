@@ -1,0 +1,12 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "transit-pay-demo-scripts",
+  "private": true,
+  "description": "One-off admin scripts for demoing Transit Pay (not part of the app or the deployed Cloud Functions).",
+  "scripts": {
+    "seed": "node seed_demo_data.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}
